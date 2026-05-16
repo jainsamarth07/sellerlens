@@ -1,0 +1,8 @@
+# Frontend-specific ignores (used by Dockerfile.frontend build context)
+node_modules/
+dist/
+.env
+.env.local
+.vite/
+*.log
+.DS_Store

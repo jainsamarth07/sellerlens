@@ -1,0 +1,36 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# Azure OpenAI
+openai==1.58.1
+
+# Azure Document Intelligence
+azure-ai-documentintelligence==1.0.0
+
+# Azure Blob Storage
+azure-storage-blob==12.24.1
+
+# Azure AI Search
+azure-search-documents==11.6.0
+
+# Azure Identity (recommended for managed identity auth)
+azure-identity==1.19.0
+
+# Data processing
+pandas==2.2.3
+openpyxl==3.1.5
+
+# Database
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+alembic==1.14.1
+
+# Validation & settings
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# Utilities
+python-dotenv==1.0.1
+httpx==0.28.1

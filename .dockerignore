@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# Node / frontend build artifacts (frontend has its own image)
+frontend/node_modules/
+frontend/dist/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Local env (mounted via env_file at runtime, not baked into image)
+.env
+.env.local
+*.env.local
+
+# Logs and tests
+logs/
+*.log
+tests/__pycache__/
+htmlcov/
+.coverage
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+
+# Docs
+*.md
+!README.md

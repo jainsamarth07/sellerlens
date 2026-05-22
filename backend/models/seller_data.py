@@ -22,6 +22,7 @@ class SellerUpload(Base):
     __tablename__ = "seller_uploads"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=True, index=True)
     filename = Column(String(255), nullable=False)
     platform = Column(String(50), nullable=False, default="flipkart")
     blob_url = Column(Text, nullable=False)

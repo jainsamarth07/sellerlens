@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import TopBar from "../components/TopBar";
+import ListingUploadButton from "../components/ListingUploadButton";
 import {
   startUpload,
   getUploadStatus,
@@ -26,7 +27,7 @@ import { formatINR } from "../lib/format";
 
 type Phase = "select" | "processing" | "success" | "error";
 
-const ACCEPT = ".csv,.xlsx,.xls";
+const ACCEPT = ".csv,.xlsx,.xls,.xlsm";
 const MAX_BYTES = 50 * 1024 * 1024;
 
 function detectPeriodFromName(name: string): string | null {
@@ -223,7 +224,7 @@ function SelectStep({
           Drop your Flipkart or Amazon settlement report here
         </p>
         <p className="text-sm text-slate-500 mt-2">
-          Supports .xlsx, .xls, .csv — up to 50 MB
+          Supports .xlsx, .xls, .xlsm, .csv — up to 50 MB
         </p>
         <button
           type="button"
@@ -241,6 +242,8 @@ function SelectStep({
           onChange={(e) => acceptIncoming(e.target.files)}
         />
       </div>
+
+      <ListingSoftPrompt />
 
       {files.length > 0 && (
         <ul className="space-y-2">
@@ -397,9 +400,7 @@ function SuccessStep({
   const period = result.summary?.payment_duration ?? "your report";
   const reclaim =
     (result.summary?.input_gst_tcs_credits ?? 0) +
-    (result.summary?.income_tax_credits ?? 0) +
-    Math.abs(result.summary?.tcs_amount ?? 0) +
-    Math.abs(result.summary?.tds_amount ?? 0);
+    (result.summary?.income_tax_credits ?? 0);
   const partial =
     result.parsing_errors.length > 0 &&
     typeof result.rows_total === "number" &&
@@ -447,6 +448,44 @@ function SuccessStep({
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* Soft prompt: optional listing-file enrichment                              */
+/* -------------------------------------------------------------------------- */
+
+function ListingSoftPrompt() {
+  const listing = useAppStore((s) => s.listing);
+
+  if (listing.hasListing && listing.matched > 0) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2">
+        <Check size={16} />
+        <span>
+          Listing on file — {listing.matched} products mapped to friendly names.
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-dashed border-slate-300 bg-slate-50/60 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
+      <div className="flex items-start gap-3 min-w-0">
+        <FileSpreadsheet size={18} className="text-slate-400 mt-0.5 shrink-0" />
+        <div className="text-sm text-slate-600">
+          <span className="font-medium text-slate-700">Optional:</span> upload
+          your Flipkart listing file to see product names instead of SKU codes
+          across the dashboard.
+        </div>
+      </div>
+      <div className="shrink-0 w-full sm:w-56">
+        {/* Reuse the sidebar button — same behaviour, same toast. */}
+        <div className="[&_button]:!text-slate-700 [&_button]:!border-slate-300 [&_button]:hover:!bg-white [&_button]:hover:!text-slate-900">
+          <ListingUploadButton />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Step 4: ERROR ----------------------------------------------------
 
 function ErrorStep({ message, onRetry }: { message: string; onRetry: () => void }) {
@@ -466,6 +505,11 @@ function ErrorStep({ message, onRetry }: { message: string; onRetry: () => void 
           ? "Download a sample template to see the expected format, then try again."
           : message}
       </p>
+      {looksLikeFormat && (
+        <p className="text-xs text-slate-500 max-w-xl mx-auto">
+          Details: {message}
+        </p>
+      )}
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
         <a
           href={sampleDownloadUrl()}

@@ -41,6 +41,8 @@ services:
       CORS_ORIGINS: http://localhost:3000,http://localhost
     ports:
       - "8000:8000"
+    command: >
+      sh -lc "cd /app && PYTHONPATH=/app alembic upgrade head && uvicorn backend.main:app --host 0.0.0.0 --port 8000"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
       interval: 30s

@@ -1,4 +1,5 @@
 import TopBar from "../components/TopBar";
+import { clearUserData } from "../lib/api";
 import { useAppStore } from "../store/useAppStore";
 
 export default function Settings() {
@@ -24,8 +25,14 @@ export default function Settings() {
             Remove all uploaded data and chat history from this browser.
           </p>
           <button
-            onClick={() => {
-              if (confirm("Clear all data?")) clearAll();
+            onClick={async () => {
+              if (!confirm("Clear all data?")) return;
+              try {
+                await clearUserData();
+              } catch {
+                // Even if the backend call fails, clear browser-local state.
+              }
+              clearAll();
             }}
             className="bg-brand-red text-white text-sm rounded-lg px-4 py-2 hover:bg-red-700"
           >

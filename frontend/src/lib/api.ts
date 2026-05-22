@@ -4,6 +4,48 @@ const baseURL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 export const api = axios.create({ baseURL, timeout: 60000 });
 
+// ---------- Auth interceptors ---------------------------------------------
+// Attach the JWT (if any) to every outgoing request and bounce the user to
+// /login on a 401. Kept in this file so every existing helper picks it up
+// automatically without further changes.
+
+const TOKEN_KEY = "sellerlens_token";
+
+api.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) {
+      config.headers = config.headers ?? {};
+      (config.headers as any).Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    /* ignore */
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err?.response?.status === 401) {
+      try {
+        localStorage.removeItem(TOKEN_KEY);
+      } catch {
+        /* ignore */
+      }
+      const path = window.location.pathname;
+      const isAuthRoute =
+        path.startsWith("/login") ||
+        path.startsWith("/signup") ||
+        path.startsWith("/auth/callback");
+      if (!isAuthRoute) {
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(err);
+  },
+);
+
 // ---------- Types ----------------------------------------------------------
 
 export interface SettlementSummary {
@@ -36,6 +78,13 @@ export interface SkuRow {
   return_rate: number;
   avg_selling_price: number;
   net_per_unit: number;
+  // Optional listing-file enrichment (present when a listing has been uploaded).
+  product_name?: string | null;
+  mrp?: number | null;
+  listing_selling_price?: number | null;
+  current_stock?: number | null;
+  listing_status?: string | null;
+  category?: string | null;
 }
 
 export interface ParsedSettlement {
@@ -178,4 +227,104 @@ export async function uploadMultiPeriod(files: File[]): Promise<MultiPeriodResul
   files.forEach((f) => form.append("files", f));
   const res = await api.post<MultiPeriodResult>("/analytics/multi-period", form);
   return res.data;
+}
+
+// ---------- Listing-file (optional product-name enrichment) ----------------
+
+export interface ListingUploadResponse {
+  filename: string;
+  matched: number;
+  total: number;
+  unmatched_skus: string[];
+  listing_count: number;
+}
+
+export interface ListingStatus {
+  user_id: string;
+  listing_count: number;
+  has_listing: boolean;
+}
+
+export interface ListingProductInfo {
+  product_name?: string | null;
+  mrp?: number | null;
+  selling_price?: number | null;
+  current_stock?: number | null;
+  status?: string | null;
+  category?: string | null;
+}
+
+export async function uploadListingFile(file: File): Promise<ListingUploadResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await api.post<ListingUploadResponse>("/upload/listing", form);
+  return res.data;
+}
+
+export async function fetchListingStatus(): Promise<ListingStatus> {
+  const res = await api.get<ListingStatus>("/upload/listing/status");
+  return res.data;
+}
+
+export async function fetchListingProducts(): Promise<Record<string, ListingProductInfo>> {
+  const res = await api.get<{ user_id: string; products: Record<string, ListingProductInfo> }>(
+    "/upload/listing/products",
+  );
+  return res.data.products ?? {};
+}
+
+export async function clearUserData(): Promise<void> {
+  await api.post("/auth/data/clear");
+}
+
+// ---------- Persisted chat sessions ---------------------------------------
+
+export interface ChatSessionMeta {
+  id: string;
+  label: string | null;
+  settlement_period: string | null;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
+
+export interface ChatMessageRow {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
+export async function listChatSessions(): Promise<ChatSessionMeta[]> {
+  const res = await api.get<ChatSessionMeta[]>("/chat/sessions");
+  return res.data;
+}
+
+export async function createChatSession(
+  label?: string,
+  period?: string,
+): Promise<ChatSessionMeta> {
+  const res = await api.post<ChatSessionMeta>("/chat/sessions", { label, period });
+  return res.data;
+}
+
+export async function fetchChatMessages(sessionId: string): Promise<ChatMessageRow[]> {
+  const res = await api.get<ChatMessageRow[]>(`/chat/sessions/${sessionId}/messages`);
+  return res.data;
+}
+
+export async function saveChatMessage(
+  sessionId: string,
+  role: "user" | "assistant",
+  content: string,
+): Promise<ChatMessageRow> {
+  const res = await api.post<ChatMessageRow>(
+    `/chat/sessions/${sessionId}/messages`,
+    { role, content },
+  );
+  return res.data;
+}
+
+export async function deleteChatSession(sessionId: string): Promise<void> {
+  await api.delete(`/chat/sessions/${sessionId}`);
 }

@@ -108,8 +108,6 @@ def _extract_period_metrics(parsed: dict, period_label: str) -> dict:
     reclaimable = (
         float(summary.get("input_gst_tcs_credits", 0) or 0)
         + float(summary.get("income_tax_credits", 0) or 0)
-        + abs(float(summary.get("tcs_amount", 0) or 0))
-        + abs(float(summary.get("tds_amount", 0) or 0))
     )
 
     best = max(skus, key=lambda s: s.get("net_settlement", 0), default={})

@@ -1,28 +1,33 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, Copy, Sparkles } from "lucide-react";
+import { Send, Copy, Sparkles, Eraser } from "lucide-react";
 import { chat, fetchSuggestions, postSuggestions } from "../lib/api";
-import { useAppStore, useActivePeriod } from "../store/useAppStore";
-
-interface DataChip {
-  type: string;
-  value: string;
-}
-
-interface Message {
-  role: "user" | "assistant";
-  text: string;
-  dataUsed?: DataChip[];
-  followUps?: string[];
-}
+import { useActivePeriod } from "../store/useAppStore";
+import {
+  useActiveChatSession,
+  useChatStore,
+  type ChatStoredMessage,
+} from "../store/useChatStore";
 
 export default function ChatInterface() {
-  const sessionId = useAppStore((s) => s.sessionId);
   const active = useActivePeriod();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const activeSession = useActiveChatSession();
+  const addMessage = useChatStore((s) => s.addMessage);
+  const clearSession = useChatStore((s) => s.clearSession);
+  const createSession = useChatStore((s) => s.createSession);
+  const loadMessagesIfNeeded = useChatStore((s) => s.loadMessagesIfNeeded);
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const messages: ChatStoredMessage[] = activeSession?.messages ?? [];
+
+  useEffect(() => {
+    if (activeSession?.id) {
+      loadMessagesIfNeeded(activeSession.id).catch(() => undefined);
+    }
+  }, [activeSession?.id, loadMessagesIfNeeded]);
 
   useEffect(() => {
     if (!active) return;
@@ -39,12 +44,26 @@ export default function ChatInterface() {
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages.length, loading]);
+
+  const ensureSession = async (): Promise<string | null> => {
+    if (activeSession?.id) return activeSession.id;
+    const period = active?.upload.summary?.payment_duration ?? null;
+    const label = period ? `${period} Analysis` : "New chat";
+    return await createSession(label, period);
+  };
 
   const send = async (text: string) => {
     const q = text.trim();
     if (!q || loading || !active) return;
-    setMessages((m) => [...m, { role: "user", text: q }]);
+    const sid = await ensureSession();
+    if (!sid) return;
+
+    addMessage(sid, {
+      role: "user",
+      text: q,
+      createdAt: new Date().toISOString(),
+    });
     setInput("");
     setLoading(true);
     try {
@@ -53,24 +72,25 @@ export default function ChatInterface() {
         skus: active.upload.skus,
         ads_total_spend: active.upload.ads_total_spend,
       };
-      const res = await chat(q, sessionId, {
+      // Keep last 6 messages in memory for the Azure OpenAI context window
+      // — same behaviour as before (server-side memory is keyed by sid).
+      const res = await chat(q, sid, {
         upload_id: active.upload.upload_id,
         seller_data: sellerData,
       });
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          text: res.answer,
-          dataUsed: res.data_used,
-          followUps: res.follow_ups,
-        },
-      ]);
+      addMessage(sid, {
+        role: "assistant",
+        text: res.answer,
+        dataUsed: res.data_used,
+        followUps: res.follow_ups,
+        createdAt: new Date().toISOString(),
+      });
     } catch {
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", text: "Sorry, I couldn't reach the AI service." },
-      ]);
+      addMessage(sid, {
+        role: "assistant",
+        text: "Sorry, I couldn't reach the AI service.",
+        createdAt: new Date().toISOString(),
+      });
     } finally {
       setLoading(false);
     }
@@ -80,6 +100,28 @@ export default function ChatInterface() {
 
   return (
     <div className="flex flex-col h-full bg-white rounded-xl border border-slate-200">
+      {/* header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-slate-900 text-sm truncate">
+            {activeSession?.label ?? "New conversation"}
+          </h3>
+          {activeSession?.settlementPeriod && (
+            <p className="text-[11px] text-slate-500 truncate">
+              {activeSession.settlementPeriod}
+            </p>
+          )}
+        </div>
+        {activeSession && messages.length > 0 && (
+          <button
+            onClick={() => clearSession(activeSession.id)}
+            className="text-xs text-slate-600 hover:text-red-600 flex items-center gap-1 px-2 py-1 rounded border border-slate-200 hover:border-red-200"
+          >
+            <Eraser size={12} /> Clear conversation
+          </button>
+        )}
+      </div>
+
       {/* messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 && (

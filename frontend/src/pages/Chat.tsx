@@ -1,17 +1,65 @@
+import { useEffect, useRef } from "react";
 import TopBar from "../components/TopBar";
 import ChatInterface from "../components/ChatInterface";
+import ConversationSidebar from "../components/ConversationSidebar";
 import { useActivePeriod } from "../store/useAppStore";
+import { useChatStore } from "../store/useChatStore";
 import { formatINR, formatPct } from "../lib/format";
 
 export default function Chat() {
   const active = useActivePeriod();
   const s = active?.upload.summary;
 
+  const hydrated = useChatStore((st) => st.hydrated);
+  const sessions = useChatStore((st) => st.sessions);
+  const activeSessionId = useChatStore((st) => st.activeSessionId);
+  const hydrateFromServer = useChatStore((st) => st.hydrateFromServer);
+  const createSession = useChatStore((st) => st.createSession);
+  const setActiveSession = useChatStore((st) => st.setActiveSession);
+  const autoCreatedFor = useRef<string | null>(null);
+
+  // Hydrate the chat store from the backend once per app load.
+  useEffect(() => {
+    if (!hydrated) {
+      hydrateFromServer().catch(() => undefined);
+    }
+  }, [hydrated, hydrateFromServer]);
+
+  // Auto-create a session for the current settlement period if none exists.
+  useEffect(() => {
+    if (!hydrated || !active) return;
+    const period = active.upload.summary?.payment_duration ?? null;
+    const matchKey = period ?? `upload-${active.upload.upload_id}`;
+    if (autoCreatedFor.current === matchKey) return;
+
+    const existing = Object.values(sessions).find(
+      (sess) => period && sess.settlementPeriod === period,
+    );
+    if (existing) {
+      if (activeSessionId !== existing.id) setActiveSession(existing.id);
+      autoCreatedFor.current = matchKey;
+      return;
+    }
+    if (activeSessionId) {
+      autoCreatedFor.current = matchKey;
+      return;
+    }
+    const label = period ? `${period} Analysis` : active.upload.filename || "New chat";
+    autoCreatedFor.current = matchKey;
+    createSession(label, period).catch(() => {
+      autoCreatedFor.current = null;
+    });
+  }, [hydrated, active, sessions, activeSessionId, createSession, setActiveSession]);
+
   return (
     <div className="flex flex-col h-full">
       <TopBar title="Chat with your data" />
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 p-6 min-h-0">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[auto_1fr_320px] gap-6 p-6 min-h-0">
+        <div className="min-h-0 hidden lg:block">
+          <ConversationSidebar />
+        </div>
+
         <div className="min-h-0">
           <ChatInterface />
         </div>

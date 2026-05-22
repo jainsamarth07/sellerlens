@@ -162,3 +162,38 @@ analytics/
 ---
 
 _Built for Microsoft Build AI Hackathon 2026._
+
+
+## Microsoft Authentication
+
+SellerLens supports two sign-in paths. **Microsoft Entra ID SSO is the primary, recommended option** for hackathon participants.
+
+- **App registered in Microsoft Entra ID** as `SellerLens`
+- **OAuth2 authorization-code flow** implemented with **MSAL for Python**
+- **Microsoft Graph API** (`GET /v1.0/me`) used to fetch the signed-in user's display name and email after consent
+- Supports both **personal Microsoft accounts** (outlook.com, hotmail.com, live.com) and **work / school accounts**
+
+### How it works
+
+1. Frontend calls `GET /api/auth/microsoft/login` to get the authorization URL (with a CSRF `state` token).
+2. Browser is redirected to Microsoft, the user signs in and consents to the `User.Read` scope.
+3. Microsoft redirects back to `GET /api/auth/microsoft/callback?code=...&state=...`.
+4. Backend exchanges the code for an access token via MSAL, fetches the Graph profile, upserts the user into the `users` table, and issues a **7-day HS256 JWT**.
+5. The JWT is appended to the frontend callback URL as a **URL hash fragment** (`#token=...`) so it never reaches any server access log.
+6. Every subsequent API request carries `Authorization: Bearer <jwt>`; every database query is scoped by `user_id` extracted from that JWT.
+
+### Email / password (fallback)
+
+Users without a Microsoft account can sign up with `POST /api/auth/signup` � passwords are hashed with **bcrypt (12 rounds)**.
+
+### Required environment variables
+
+```
+JWT_SECRET=<random 48-byte secret>
+MICROSOFT_CLIENT_ID=<from Entra App Registration>
+MICROSOFT_CLIENT_SECRET=<from Entra App Registration>
+MICROSOFT_TENANT_ID=common
+MICROSOFT_REDIRECT_URI=http://localhost:8000/api/auth/microsoft/callback
+```
+
+This demonstrates **Azure AI Foundry + Azure OpenAI + Microsoft Entra ID** � three Microsoft services in one product.

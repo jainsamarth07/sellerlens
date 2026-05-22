@@ -22,6 +22,8 @@ from backend.database import SessionLocal, get_db
 from backend.models.seller_data import SellerUpload
 from backend.processors.settlement_parser import parse_settlement
 from backend.services import upload_jobs
+from backend.services.auth_service import current_user_id, get_current_user
+from backend.services.listing_service import resolve_sku_names
 from backend.services.sample_data import build_sample_flipkart_workbook
 from backend.services.storage import StorageService
 
@@ -31,6 +33,7 @@ ALLOWED_CONTENT_TYPES = {
     "text/csv",
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel.sheet.macroEnabled.12",
     "application/octet-stream",  # browsers sometimes send this for .xlsx
 }
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
@@ -39,10 +42,15 @@ MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 def _validate(file: UploadFile, contents: bytes) -> None:
     if file.content_type and file.content_type not in ALLOWED_CONTENT_TYPES:
         name = (file.filename or "").lower()
-        if not (name.endswith(".csv") or name.endswith(".xlsx") or name.endswith(".xls")):
+        if not (
+            name.endswith(".csv")
+            or name.endswith(".xlsx")
+            or name.endswith(".xls")
+            or name.endswith(".xlsm")
+        ):
             raise HTTPException(
                 status_code=400,
-                detail="Only CSV and Excel files are accepted.",
+                detail="Unsupported file type. Use .csv, .xls, .xlsx, or .xlsm settlement reports.",
             )
     if len(contents) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="File exceeds the 50 MB limit.")
@@ -77,6 +85,7 @@ async def upload_file(
     file: UploadFile = File(...),
     platform: str = "flipkart",
     db: Session = Depends(get_db),
+    user_id: str = Depends(current_user_id),
 ):
     """Upload, parse, and persist a settlement report in a single round-trip."""
     contents = await file.read()
@@ -90,7 +99,15 @@ async def upload_file(
 
     parsed = parse_settlement(contents, file.filename or "upload.csv", platform)
 
+    # Additive enrichment: attach product_name / stock / status from listing table
+    # if a listing file has been uploaded. Falls back silently otherwise.
+    try:
+        resolve_sku_names(parsed.get("skus", []), db, user_id=user_id)
+    except Exception:  # noqa: BLE001
+        pass
+
     upload_record = SellerUpload(
+        user_id=int(user_id),
         filename=file.filename,
         platform=parsed.get("platform", platform),
         blob_url=blob_url,
@@ -108,7 +125,9 @@ async def upload_file(
 # ---------------------------------------------------------------------------
 
 
-def _run_pipeline(job_id: str, contents: bytes, filename: str, platform: str) -> None:
+def _run_pipeline(
+    job_id: str, contents: bytes, filename: str, platform: str, user_id: int
+) -> None:
     """Execute the upload pipeline, updating job status as each step completes."""
     upload_jobs.mark_step(job_id, "upload", "done")
 
@@ -132,12 +151,18 @@ def _run_pipeline(job_id: str, contents: bytes, filename: str, platform: str) ->
 
         upload_jobs.mark_step(job_id, "profit", "running")
         sku_count = len(parsed.get("skus", []))
+        # Additive enrichment: attach listing product names if available.
+        try:
+            resolve_sku_names(parsed.get("skus", []), db, user_id=str(user_id))
+        except Exception:  # noqa: BLE001
+            pass
         upload_jobs.mark_step(job_id, "profit", "done", detail=f"{sku_count} SKUs analysed")
 
         upload_jobs.mark_step(job_id, "insights", "running")
         upload_jobs.mark_step(job_id, "insights", "done", detail="ready on dashboard")
 
         upload_record = SellerUpload(
+            user_id=user_id,
             filename=filename,
             platform=parsed.get("platform", platform),
             blob_url=blob_url,
@@ -160,6 +185,7 @@ async def start_upload(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     platform: str = "flipkart",
+    user_id: str = Depends(current_user_id),
 ):
     """Kick off background processing and return a ``job_id`` for polling."""
     contents = await file.read()
@@ -168,7 +194,7 @@ async def start_upload(
     job = upload_jobs.create_job()
     threading.Thread(
         target=_run_pipeline,
-        args=(job.job_id, contents, file.filename or "upload.xlsx", platform),
+        args=(job.job_id, contents, file.filename or "upload.xlsx", platform, int(user_id)),
         daemon=True,
     ).start()
 
@@ -176,7 +202,7 @@ async def start_upload(
 
 
 @router.get("/status/{job_id}")
-async def get_status(job_id: str):
+async def get_status(job_id: str, _user=Depends(get_current_user)):
     job = upload_jobs.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Unknown job_id")

@@ -24,13 +24,38 @@ export default function SkuDetailPanel({ sku, onClose }: Props) {
     ["Net Per Unit", formatINR(sku.net_per_unit)],
   ];
 
+  // Listing-derived rows (only shown when present).
+  const listingRows: [string, string][] = [];
+  if (sku.mrp != null) listingRows.push(["MRP (Listing)", formatINR(sku.mrp)]);
+  if (sku.listing_selling_price != null)
+    listingRows.push(["Listing Price", formatINR(sku.listing_selling_price)]);
+  if (sku.current_stock != null)
+    listingRows.push(["Current Stock", String(sku.current_stock)]);
+  if (sku.listing_status)
+    listingRows.push(["Listing Status", sku.listing_status]);
+  if (sku.category) listingRows.push(["Category", sku.category]);
+
+  const title = sku.product_name?.trim() || sku.seller_sku;
+  const showSubtitle = Boolean(sku.product_name);
+
   return (
     <>
       <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
       <aside className="fixed right-0 top-0 h-full w-96 bg-white shadow-xl z-50 overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-slate-200">
-          <h2 className="font-semibold text-slate-900 truncate">{sku.seller_sku}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
+        <div className="flex items-start justify-between p-5 border-b border-slate-200 gap-3">
+          <div className="min-w-0">
+            <h2 className="font-semibold text-slate-900 break-words">{title}</h2>
+            {showSubtitle && (
+              <p className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">
+                {sku.seller_sku}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="text-slate-400 hover:text-slate-700"
+          >
             <X size={20} />
           </button>
         </div>
@@ -44,6 +69,22 @@ export default function SkuDetailPanel({ sku, onClose }: Props) {
               <span className="text-sm font-medium text-slate-900">{value}</span>
             </div>
           ))}
+          {listingRows.length > 0 && (
+            <div className="pt-4">
+              <h3 className="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">
+                From your listing
+              </h3>
+              {listingRows.map(([label, value]) => (
+                <div
+                  key={label}
+                  className="flex justify-between py-2 border-b border-slate-100 last:border-0"
+                >
+                  <span className="text-sm text-slate-500">{label}</span>
+                  <span className="text-sm font-medium text-slate-900">{value}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </aside>
     </>

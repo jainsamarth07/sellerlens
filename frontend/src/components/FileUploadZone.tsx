@@ -12,7 +12,7 @@ interface Props {
 
 export default function FileUploadZone({
   multiple = false,
-  accept = ".csv,.xlsx,.xls",
+  accept = ".csv,.xlsx,.xls,.xlsm",
   maxFiles = 6,
   onFiles,
   hint,
@@ -36,10 +36,14 @@ export default function FileUploadZone({
     <div>
       <div
         onDragOver={(e) => {
+          if (disabled) return;
           e.preventDefault();
           setDrag(true);
         }}
-        onDragLeave={() => setDrag(false)}
+        onDragLeave={() => {
+          if (disabled) return;
+          setDrag(false);
+        }}
         onDrop={(e) => {
           if (disabled) return;
           e.preventDefault();

@@ -8,11 +8,13 @@ import {
   Zap,
   Upload,
 } from "lucide-react";
+import ListingUploadButton from "./ListingUploadButton";
+import UserMenu from "./UserMenu";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: Home },
   { to: "/products", label: "Products", icon: Box },
-  { to: "/chat", label: "Chat with AI", icon: MessageCircle, badge: "NEW" },
+  { to: "/chat", label: "Chat with AI", icon: MessageCircle },
   { to: "/compare", label: "Compare Months", icon: BarChart2 },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
@@ -32,7 +34,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex flex-col gap-1 flex-1">
-        {navItems.map(({ to, label, icon: Icon, badge }) => (
+        {navItems.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -40,15 +42,12 @@ export default function Sidebar() {
           >
             <Icon size={18} />
             <span className="flex-1">{label}</span>
-            {badge && (
-              <span className="badge bg-brand-green text-white">{badge}</span>
-            )}
           </NavLink>
         ))}
       </nav>
 
       {/* Upload */}
-      <div className="mt-4">
+      <div className="mt-4 space-y-3">
         <button
           onClick={() => navigate("/upload")}
           className="w-full flex items-center justify-center gap-2 bg-brand-green hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition"
@@ -56,12 +55,17 @@ export default function Sidebar() {
           <Upload size={16} />
           Upload Report
         </button>
+
+        <ListingUploadButton />
       </div>
 
       {/* Powered by */}
       <div className="mt-4 text-center text-xs text-slate-400">
         Powered by <span className="text-white font-semibold">Azure AI</span>
       </div>
+
+      {/* Authenticated user */}
+      <UserMenu />
     </aside>
   );
 }

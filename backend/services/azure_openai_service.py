@@ -84,8 +84,13 @@ def _build_sku_summary(skus: list[dict], top_n: int = 5) -> str:
     top = sorted(skus, key=lambda s: s.get("total_revenue", 0), reverse=True)[:top_n]
     lines = []
     for s in top:
+        # Prefer the human-friendly product name from the listing file if present;
+        # fall back to the raw SKU code so legacy callers still work.
+        label = s.get("product_name") or s.get("seller_sku", "UNKNOWN")
+        sku_code = s.get("seller_sku", "")
+        suffix = f" ({sku_code})" if s.get("product_name") and sku_code else ""
         lines.append(
-            f"- {s.get('seller_sku', 'UNKNOWN')}: "
+            f"- {label}{suffix}: "
             f"revenue {_format_inr(s.get('total_revenue', 0))}, "
             f"net {_format_inr(s.get('net_settlement', 0))}, "
             f"units {s.get('units_sold', 0)}, "
@@ -211,8 +216,6 @@ def generate_seller_insights(settlement_data: dict) -> dict:
     reclaimable = (
         (summary.get("input_gst_tcs_credits", 0) or 0)
         + (summary.get("income_tax_credits", 0) or 0)
-        + abs(summary.get("tcs_amount", 0) or 0)
-        + abs(summary.get("tds_amount", 0) or 0)
     )
 
     user_prompt = f"""Analyze this seller's April 2026 settlement data and generate insights:

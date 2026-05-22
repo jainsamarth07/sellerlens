@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, Wallet, RotateCcw, Receipt, Sparkles, RefreshCw, Upload as UploadIcon,
@@ -19,6 +19,7 @@ import {
   fetchInsights, type InsightReport, type SkuRow,
 } from "../lib/api";
 import { formatINR, formatPct } from "../lib/format";
+import { buildSkuMap } from "../lib/sku";
 
 const PIE_COLORS = ["#059669", "#DC2626", "#D97706", "#2563EB", "#7C3AED"];
 
@@ -28,6 +29,7 @@ export default function Dashboard() {
   const [insights, setInsights] = useState<InsightReport | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [selectedSku, setSelectedSku] = useState<SkuRow | null>(null);
+  const skuMap = useMemo(() => buildSkuMap(active?.upload.skus), [active]);
 
   const loadInsights = async () => {
     if (!active) return;
@@ -85,9 +87,7 @@ export default function Dashboard() {
     : 0;
   const reclaimable =
     (s.input_gst_tcs_credits || 0) +
-    (s.income_tax_credits || 0) +
-    Math.abs(s.tcs_amount || 0) +
-    Math.abs(s.tds_amount || 0);
+    (s.income_tax_credits || 0);
   const netPctOfSales = s.gross_sales_amount
     ? (s.net_bank_settlement / s.gross_sales_amount) * 100
     : 0;
@@ -214,7 +214,7 @@ export default function Dashboard() {
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {insights.insights.map((ins, i) => (
-                  <InsightCard key={i} insight={ins} />
+                  <InsightCard key={i} insight={ins} skuMap={skuMap} />
                 ))}
               </div>
             </>

@@ -13,6 +13,7 @@ import time
 from collections import deque
 from typing import Any
 
+from backend.processors._helpers import safe_str
 from backend.services.azure_openai_service import (
     _build_client,
     _chat_with_retry,
@@ -80,17 +81,28 @@ def _format_sku_table(skus: list[dict], top_n: int = 8) -> str:
     if not skus:
         return "(no SKU data)"
     top = sorted(skus, key=lambda s: s.get("total_revenue", 0), reverse=True)[:top_n]
-    header = f"{'SKU':<20} {'Revenue':>14} {'Net':>14} {'Units':>7} {'Return%':>8}"
+    header = f"{'Product':<28} {'Revenue':>14} {'Net':>14} {'Units':>7} {'Return%':>8}"
     rows = [header, "-" * len(header)]
     for s in top:
+        # Show product_name (truncated) when available, else fall back to SKU code.
+        label = s.get("product_name") or s.get("seller_sku", "")
         rows.append(
-            f"{str(s.get('seller_sku', ''))[:20]:<20} "
+            f"{str(label)[:28]:<28} "
             f"{_format_inr(s.get('total_revenue', 0)):>14} "
             f"{_format_inr(s.get('net_settlement', 0)):>14} "
             f"{int(s.get('units_sold', 0)):>7} "
             f"{float(s.get('return_rate', 0)):>7.1f}%"
         )
     return "\n".join(rows)
+
+
+def _sku_label(sku_row: dict) -> str:
+    """Human-friendly SKU label: product name first, SKU as secondary."""
+    sku = safe_str(sku_row.get("seller_sku"))
+    name = safe_str(sku_row.get("product_name"))
+    if name and sku:
+        return f"{name} ({sku})"
+    return name or sku or "—"
 
 
 def _flatten_seller_data(parsed: dict) -> dict:
@@ -105,12 +117,10 @@ def _flatten_seller_data(parsed: dict) -> dict:
     reclaimable = (
         (summary.get("input_gst_tcs_credits", 0) or 0)
         + (summary.get("income_tax_credits", 0) or 0)
-        + abs(summary.get("tcs_amount", 0) or 0)
-        + abs(summary.get("tds_amount", 0) or 0)
     )
 
-    best_sku = max(skus, key=lambda s: s.get("net_settlement", 0), default={}).get("seller_sku", "—")
-    worst_sku = min(skus, key=lambda s: s.get("net_settlement", 0), default={}).get("seller_sku", "—")
+    best_sku = _sku_label(max(skus, key=lambda s: s.get("net_settlement", 0), default={}))
+    worst_sku = _sku_label(min(skus, key=lambda s: s.get("net_settlement", 0), default={}))
 
     return {
         "gross_sales": summary.get("gross_sales_amount", 0) or 0,
@@ -169,7 +179,7 @@ def suggested_questions(seller_data: dict) -> list[str]:
         key=lambda s: s.get("return_rate", 0),
         default=None,
     )
-    high_return_sku = high_return.get("seller_sku") if high_return else worst
+    high_return_sku = _sku_label(high_return) if high_return else worst
 
     return [
         "Which product made me the most money this month?",
@@ -302,8 +312,9 @@ def _rule_based_answer(question: str, seller_data: dict) -> str:
         if not skus:
             return "I don't have any SKU data yet. Want to upload your latest settlement report?"
         top = skus[0]
+        top_label = _sku_label(top)
         return (
-            f"Your top earner is {top['seller_sku']} with net settlement of "
+            f"Your top earner is {top_label} with net settlement of "
             f"{_format_inr(top['net_settlement'])} from {top.get('units_sold', 0)} units. "
             f"Want me to break down its margin per unit?"
         )

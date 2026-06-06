@@ -6,6 +6,7 @@ import Chat from "./pages/Chat";
 import Compare from "./pages/Compare";
 import Settings from "./pages/Settings";
 import Upload from "./pages/Upload";
+import Ads from "./pages/Ads";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import AuthCallback from "./pages/AuthCallback";
@@ -37,6 +38,7 @@ export default function App() {
       <Route path="/upload" element={<Protected><Upload /></Protected>} />
       <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
       <Route path="/products" element={<Protected><Products /></Protected>} />
+      <Route path="/ads" element={<Protected><Ads /></Protected>} />
       <Route path="/chat" element={<Protected><Chat /></Protected>} />
       <Route path="/compare" element={<Protected><Compare /></Protected>} />
       <Route path="/settings" element={<Protected><Settings /></Protected>} />

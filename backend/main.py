@@ -4,7 +4,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import settings
-from backend.api import analytics, auth, chat, chat_sessions, health, listing, multi_period, upload
+from backend.api import (
+    ads,
+    analytics,
+    auth,
+    chat,
+    chat_sessions,
+    health,
+    listing,
+    multi_period,
+    upload,
+)
 
 app = FastAPI(
     title="E-Commerce Profit Analytics",
@@ -25,6 +35,7 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
 app.include_router(listing.router, prefix="/api/upload", tags=["Listing"])
+app.include_router(ads.router, prefix="/api", tags=["Ads"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(chat_sessions.router, prefix="/api/chat", tags=["ChatSessions"])

@@ -7,6 +7,7 @@ import {
   Settings as SettingsIcon,
   Zap,
   Upload,
+  TrendingUp,
 } from "lucide-react";
 import ListingUploadButton from "./ListingUploadButton";
 import UserMenu from "./UserMenu";
@@ -14,7 +15,8 @@ import UserMenu from "./UserMenu";
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: Home },
   { to: "/products", label: "Products", icon: Box },
-  { to: "/chat", label: "Chat with AI", icon: MessageCircle },
+  { to: "/ads", label: "Ads Analytics", icon: TrendingUp, badge: "NEW" },
+  { to: "/chat", label: "Chat with AI", icon: MessageCircle, badge: "NEW" },
   { to: "/compare", label: "Compare Months", icon: BarChart2 },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
@@ -34,7 +36,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex flex-col gap-1 flex-1">
-        {navItems.map(({ to, label, icon: Icon }) => (
+        {navItems.map(({ to, label, icon: Icon, badge }) => (
           <NavLink
             key={to}
             to={to}
@@ -42,6 +44,9 @@ export default function Sidebar() {
           >
             <Icon size={18} />
             <span className="flex-1">{label}</span>
+            {badge && (
+              <span className="badge bg-brand-green text-white">{badge}</span>
+            )}
           </NavLink>
         ))}
       </nav>

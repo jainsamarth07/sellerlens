@@ -27,7 +27,7 @@ import { formatINR } from "../lib/format";
 
 type Phase = "select" | "processing" | "success" | "error";
 
-const ACCEPT = ".csv,.xlsx,.xls,.xlsm";
+const ACCEPT = ".csv,.xlsx,.xls";
 const MAX_BYTES = 50 * 1024 * 1024;
 
 function detectPeriodFromName(name: string): string | null {
@@ -224,7 +224,7 @@ function SelectStep({
           Drop your Flipkart or Amazon settlement report here
         </p>
         <p className="text-sm text-slate-500 mt-2">
-          Supports .xlsx, .xls, .xlsm, .csv — up to 50 MB
+          Supports .xlsx, .xls, .csv — up to 50 MB
         </p>
         <button
           type="button"
@@ -234,7 +234,7 @@ function SelectStep({
           Or browse files
         </button>
         <input
-          ref={fileInput}
+          ref={fileInput as React.RefObject<HTMLInputElement>}
           type="file"
           accept={ACCEPT}
           multiple
@@ -505,11 +505,6 @@ function ErrorStep({ message, onRetry }: { message: string; onRetry: () => void 
           ? "Download a sample template to see the expected format, then try again."
           : message}
       </p>
-      {looksLikeFormat && (
-        <p className="text-xs text-slate-500 max-w-xl mx-auto">
-          Details: {message}
-        </p>
-      )}
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
         <a
           href={sampleDownloadUrl()}

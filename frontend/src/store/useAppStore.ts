@@ -63,19 +63,18 @@ export const useAppStore = create<AppState>()(
             ...p,
             upload: {
               ...p.upload,
-              skus: p.upload.skus.map((sku) => {
+              skus: (p.upload.skus ?? []).map((sku) => {
                 const info = products[sku.seller_sku];
-                if (!info) {
-                  return sku;
-                }
+                if (!info) return sku;
                 return {
                   ...sku,
-                  product_name: info.product_name ?? null,
-                  mrp: info.mrp ?? null,
-                  listing_selling_price: info.selling_price ?? null,
-                  current_stock: info.current_stock ?? null,
-                  listing_status: info.status ?? null,
-                  category: info.category ?? null,
+                  product_name: info.product_name ?? sku.product_name ?? null,
+                  mrp: info.mrp ?? sku.mrp ?? null,
+                  listing_selling_price:
+                    info.selling_price ?? sku.listing_selling_price ?? null,
+                  current_stock: info.current_stock ?? sku.current_stock ?? null,
+                  listing_status: info.status ?? sku.listing_status ?? null,
+                  category: info.category ?? sku.category ?? null,
                 };
               }),
             },

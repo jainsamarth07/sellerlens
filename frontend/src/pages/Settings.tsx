@@ -30,7 +30,7 @@ export default function Settings() {
               try {
                 await clearUserData();
               } catch {
-                // Even if the backend call fails, clear browser-local state.
+                // Best effort: still clear local state so the app can recover.
               }
               clearAll();
             }}

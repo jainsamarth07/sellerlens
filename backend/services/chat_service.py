@@ -13,7 +13,6 @@ import time
 from collections import deque
 from typing import Any
 
-from backend.processors._helpers import safe_str
 from backend.services.azure_openai_service import (
     _build_client,
     _chat_with_retry,
@@ -96,10 +95,12 @@ def _format_sku_table(skus: list[dict], top_n: int = 8) -> str:
     return "\n".join(rows)
 
 
-def _sku_label(sku_row: dict) -> str:
-    """Human-friendly SKU label: product name first, SKU as secondary."""
-    sku = safe_str(sku_row.get("seller_sku"))
-    name = safe_str(sku_row.get("product_name"))
+def _sku_label(sku_row: dict[str, Any]) -> str:
+    """Prefer product name and include SKU in parentheses when available."""
+    if not sku_row:
+        return "—"
+    name = (sku_row.get("product_name") or "").strip()
+    sku = (sku_row.get("seller_sku") or "").strip()
     if name and sku:
         return f"{name} ({sku})"
     return name or sku or "—"
@@ -141,6 +142,15 @@ def build_context(seller_data: dict) -> str:
     """Render the seller's data block that grounds every chat turn."""
     d = _flatten_seller_data(seller_data) if "summary" in seller_data else seller_data
 
+    # Optional ads context (additive — only appears when a Flipkart ads
+    # report has been uploaded for this user). Falls back silently otherwise.
+    ads_block = (
+        seller_data.get("_ads_context")
+        if isinstance(seller_data, dict)
+        else None
+    )
+    ads_section = f"\n\n{ads_block}" if ads_block else ""
+
     return f"""SELLER DATA SUMMARY (April 2026):
 
 FINANCIALS:
@@ -158,7 +168,7 @@ ORDER STATS:
 - Total orders: {d['total_orders']}
 - Total returns: {d['total_returns']}
 - Best SKU: {d['best_sku']}
-- Worst SKU: {d['worst_sku']}
+- Worst SKU: {d['worst_sku']}{ads_section}
 """
 
 
@@ -181,7 +191,7 @@ def suggested_questions(seller_data: dict) -> list[str]:
     )
     high_return_sku = _sku_label(high_return) if high_return else worst
 
-    return [
+    questions = [
         "Which product made me the most money this month?",
         "How much am I losing to returns?",
         f"Why is {high_return_sku} returning so often?",
@@ -189,6 +199,22 @@ def suggested_questions(seller_data: dict) -> list[str]:
         f"Should I stop advertising {worst}?",
         "What would happen if I reduced returns by 10%?",
     ]
+
+    # When the seller has uploaded a Flipkart ads report, surface extra
+    # ads-aware prompts. Gated on ``_ads_context`` so seller_data without ads
+    # keeps the historical six-question contract.
+    if isinstance(seller_data, dict) and seller_data.get("_ads_context"):
+        questions.extend(
+            [
+                "Which campaigns should I pause right now?",
+                "What's my true profit after deducting ad costs?",
+                "Which products should I stop advertising?",
+                "What's my most efficient product after ads?",
+                "How much money am I losing on laptop stand ads?",
+            ]
+        )
+
+    return questions
 
 
 # ---------------------------------------------------------------------------
@@ -312,9 +338,8 @@ def _rule_based_answer(question: str, seller_data: dict) -> str:
         if not skus:
             return "I don't have any SKU data yet. Want to upload your latest settlement report?"
         top = skus[0]
-        top_label = _sku_label(top)
         return (
-            f"Your top earner is {top_label} with net settlement of "
+            f"Your top earner is {_sku_label(top)} with net settlement of "
             f"{_format_inr(top['net_settlement'])} from {top.get('units_sold', 0)} units. "
             f"Want me to break down its margin per unit?"
         )

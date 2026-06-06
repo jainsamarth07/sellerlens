@@ -33,7 +33,6 @@ ALLOWED_CONTENT_TYPES = {
     "text/csv",
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-excel.sheet.macroEnabled.12",
     "application/octet-stream",  # browsers sometimes send this for .xlsx
 }
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
@@ -42,15 +41,10 @@ MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 def _validate(file: UploadFile, contents: bytes) -> None:
     if file.content_type and file.content_type not in ALLOWED_CONTENT_TYPES:
         name = (file.filename or "").lower()
-        if not (
-            name.endswith(".csv")
-            or name.endswith(".xlsx")
-            or name.endswith(".xls")
-            or name.endswith(".xlsm")
-        ):
+        if not (name.endswith(".csv") or name.endswith(".xlsx") or name.endswith(".xls")):
             raise HTTPException(
                 status_code=400,
-                detail="Unsupported file type. Use .csv, .xls, .xlsx, or .xlsm settlement reports.",
+                detail="Only CSV and Excel files are accepted.",
             )
     if len(contents) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="File exceeds the 50 MB limit.")

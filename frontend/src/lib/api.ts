@@ -328,3 +328,124 @@ export async function saveChatMessage(
 export async function deleteChatSession(sessionId: string): Promise<void> {
   await api.delete(`/chat/sessions/${sessionId}`);
 }
+
+// ---------- Ads analytics (additive) --------------------------------------
+
+export interface AdsCampaign {
+  id: number;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  status: string | null;
+  ad_spend: number;
+  revenue: number;
+  roi: number;
+  ctr_pct: number;
+  conversion_rate_pct: number;
+  verdict: "star" | "decent" | "watch" | "stop";
+  views: number;
+  clicks: number;
+  conversions: number;
+  mapped_category: string | null;
+}
+
+export interface AdsSummary {
+  total_spend: number;
+  total_revenue: number;
+  overall_roi: number;
+  wasted_spend: number;
+  wasted_campaigns: number;
+  underperforming_spend: number;
+  campaigns_to_stop: string[];
+  best_campaign: { name: string; roi: number } | null;
+  worst_campaign: { name: string; roi: number } | null;
+  total_campaigns: number;
+  active_campaigns: number;
+}
+
+export interface AdsCategoryCrossRef {
+  category: string;
+  ad_spend: number;
+  settlement_revenue: number;
+  ad_cost_ratio_pct: number | null;
+  verdict: "efficient" | "expensive" | "unclear";
+}
+
+/** Product row enriched with proportionally attributed ad spend. Computed client-side. */
+export interface AdsProductRow extends SkuRow {
+  attributed_ad_spend: number;
+  ad_cost_pct: number;
+  true_profit: number;
+  true_margin_pct: number;
+  profit_verdict: "pause_ads" | "reduce_budget" | "scale_up" | "review";
+  matched_category: string | null;
+}
+
+export interface AdsInsight {
+  type: "stop" | "scale" | "optimize" | "info";
+  title: string;
+  finding: string;
+  action: string;
+  monthly_impact: string;
+}
+
+export interface AdsAnalysis {
+  settlement_period: string | null;
+  campaigns: AdsCampaign[];
+  summary: AdsSummary;
+  category_cross_reference: AdsCategoryCrossRef[];
+  ai_insights: { insights: AdsInsight[] } | null;
+}
+
+export interface AdsUploadResponse {
+  filename: string;
+  settlement_period: string | null;
+  total_campaigns: number;
+  active_campaigns: number;
+  total_spend: number;
+  total_revenue: number;
+}
+
+export async function uploadAdsFile(
+  file: File,
+  settlementPeriod?: string,
+): Promise<AdsUploadResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  const qs = settlementPeriod ? `?settlement_period=${encodeURIComponent(settlementPeriod)}` : "";
+  const res = await api.post<AdsUploadResponse>(`/upload/ads${qs}`, form);
+  return res.data;
+}
+
+export async function fetchAdsAnalysis(
+  settlementPeriod?: string,
+  includeInsights = true,
+): Promise<AdsAnalysis> {
+  const params = new URLSearchParams();
+  if (settlementPeriod) params.set("settlement_period", settlementPeriod);
+  if (!includeInsights) params.set("include_insights", "false");
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  const res = await api.get<AdsAnalysis>(`/ads/analysis${qs}`);
+  return res.data;
+}
+
+export async function refreshAdsInsights(
+  settlementPeriod?: string,
+): Promise<{ ai_insights: { insights: AdsInsight[] } }> {
+  const qs = settlementPeriod ? `?settlement_period=${encodeURIComponent(settlementPeriod)}` : "";
+  const res = await api.post<{ ai_insights: { insights: AdsInsight[] } }>(
+    `/ads/insights/refresh${qs}`,
+  );
+  return res.data;
+}
+
+export async function fetchAdsStatus(): Promise<{ has_ads: boolean }> {
+  try {
+    const res = await api.get<{ has_ads: boolean }>("/ads/status");
+    return res.data;
+  } catch (err: any) {
+    if (err?.response?.status === 404) {
+      return { has_ads: false };
+    }
+    throw err;
+  }
+}

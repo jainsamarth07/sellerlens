@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import json
 import threading
-import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -65,6 +65,17 @@ def _load_seller_data(upload_id: int, db: Session, user_id: int) -> dict:
     return parsed
 
 
+def _generic_suggestions() -> list[str]:
+    return [
+        "Which product made me the most money this month?",
+        "How much am I losing to returns?",
+        "Am I claiming my GST credits correctly?",
+        "Which SKU should I focus on next?",
+        "What is my biggest cost right now?",
+        "What would happen if I reduced returns by 10%?",
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Request / response schemas
 # ---------------------------------------------------------------------------
@@ -108,37 +119,42 @@ async def chat_endpoint(
     """
     seller_data = body.seller_data
     if body.upload_id is not None:
-        # Prefer server-side reload from storage for fresh data. If that fails
-        # (for example local/no-blob mode), fall back to client-sent seller_data
-        # so chat fallback logic can still answer.
         try:
+            # Prefer trusted server-side data scoped to authenticated user.
             seller_data = _load_seller_data(body.upload_id, db, int(user_id))
-        except HTTPException as exc:
-            # Keep auth/ownership and request-shape errors strict.
-            if exc.status_code in {400, 401, 403, 404}:
+        except HTTPException:
+            raise
+        except Exception:
+            # Fallback to client-provided payload so chat still works when
+            # storage/download parsing is temporarily unavailable.
+            if seller_data is None:
                 raise
-            if body.seller_data is None:
-                raise
-            logger.warning(
-                "chat data reload failed for upload_id=%s (status=%s); using request seller_data",
-                body.upload_id,
-                exc.status_code,
-            )
-            seller_data = body.seller_data
-        except Exception as exc:  # noqa: BLE001
-            if body.seller_data is None:
-                raise
-            logger.warning(
-                "chat data reload exception for upload_id=%s; using request seller_data: %s",
-                body.upload_id,
-                exc,
-            )
-            seller_data = body.seller_data
     elif seller_data is None:
         raise HTTPException(
             status_code=400,
             detail="Provide either seller_data or upload_id.",
         )
+
+    # Additive: enrich context with ads summary + product-level attribution
+    # when the seller has uploaded a Flipkart ads report.  Silent fall-through
+    # on any error so chat never breaks because of an optional feature.
+    try:  # pragma: no cover - defensive
+        from backend.services.ads_service import build_chat_context_block
+
+        settlement_skus: list[dict] = []
+        if isinstance(seller_data, dict):
+            settlement_skus = seller_data.get("skus") or []
+
+        ads_ctx = build_chat_context_block(
+            db,
+            user_id=int(user_id),
+            settlement_skus=settlement_skus,
+        )
+        if ads_ctx:
+            seller_data = dict(seller_data)
+            seller_data["_ads_context"] = ads_ctx
+    except Exception:
+        pass
 
     result = chat_service(body.question, body.session_id, seller_data)
     return ChatResponse(
@@ -156,8 +172,14 @@ async def get_suggestions(
     user_id: str = Depends(current_user_id),
 ):
     """Return six personalised starter questions for the chat UI."""
-    seller_data = _load_seller_data(upload_id, db, int(user_id))
-    return {"questions": suggested_questions(seller_data)}
+    try:
+        seller_data = _load_seller_data(upload_id, db, int(user_id))
+        return {"questions": suggested_questions(seller_data)}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Falling back to generic suggestions for upload %s", upload_id)
+        return {"questions": _generic_suggestions()}
 
 
 @router.post("/suggestions")
@@ -165,7 +187,11 @@ async def post_suggestions(
     seller_data: dict, _user=Depends(get_current_user)
 ):
     """Same as GET above but takes the parsed data directly (no DB lookup)."""
-    return {"questions": suggested_questions(seller_data)}
+    try:
+        return {"questions": suggested_questions(seller_data)}
+    except Exception:
+        logger.exception("Falling back to generic suggestions for direct payload")
+        return {"questions": _generic_suggestions()}
 
 
 @router.delete("/session/{session_id}")

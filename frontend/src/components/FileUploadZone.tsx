@@ -12,7 +12,7 @@ interface Props {
 
 export default function FileUploadZone({
   multiple = false,
-  accept = ".csv,.xlsx,.xls,.xlsm",
+  accept = ".csv,.xlsx,.xls",
   maxFiles = 6,
   onFiles,
   hint,
@@ -23,13 +23,12 @@ export default function FileUploadZone({
 
   const accept_files = useCallback(
     (incoming: FileList | null) => {
-      if (disabled) return;
       if (!incoming) return;
       const list = Array.from(incoming).slice(0, maxFiles);
       setFiles(list);
       onFiles(list);
     },
-    [disabled, maxFiles, onFiles],
+    [maxFiles, onFiles],
   );
 
   return (
@@ -40,10 +39,7 @@ export default function FileUploadZone({
           e.preventDefault();
           setDrag(true);
         }}
-        onDragLeave={() => {
-          if (disabled) return;
-          setDrag(false);
-        }}
+        onDragLeave={() => setDrag(false)}
         onDrop={(e) => {
           if (disabled) return;
           e.preventDefault();
@@ -54,7 +50,7 @@ export default function FileUploadZone({
           drag
             ? "border-brand-green bg-emerald-50"
             : "border-slate-300 bg-slate-50 hover:border-brand-green"
-        }`}
+        } ${disabled ? "opacity-60 pointer-events-none" : ""}`}
       >
         <UploadCloud className="mx-auto text-slate-400" size={36} />
         <p className="mt-3 text-slate-700 font-medium">

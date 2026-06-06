@@ -20,23 +20,22 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.database import engine
-from backend.models.chat import ChatSession, ensure_chat_tables
+from backend.models.ads import AdCampaign
+from backend.models.chat import ChatMessage, ChatSession
 from backend.models.listing import ListingProduct
 from backend.models.seller_data import OrderRow, SellerUpload
 from backend.models.user import User, ensure_users_table
 from backend.services.auth_service import (
     MS_REDIRECT_URI,
     build_microsoft_auth_url,
-    create_access_token,
     current_user_id,
+    create_access_token,
     exchange_microsoft_code,
     generate_state,
     get_current_user,
     hash_password,
     verify_password,
 )
-from backend.services.listing_service import ensure_listing_table
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -271,52 +270,70 @@ def clear_user_data(
     db: Session = Depends(get_db),
     user_id: str = Depends(current_user_id),
 ):
-    """Delete this user's uploaded settlements, listing map, and chat history."""
-    uploads_deleted = 0
-    orders_deleted = 0
-    listings_deleted = 0
-    chats_deleted = 0
+    """Delete all persisted data owned by the authenticated user."""
+    uid = int(user_id)
 
-    # Settlement uploads + extracted order rows
-    try:
-                uid_int = int(user_id)
-    except ValueError:
-                uid_int = None
+    uploads = (
+        db.query(SellerUpload.id)
+        .filter(SellerUpload.user_id == uid)
+        .all()
+    )
+    upload_ids = [row[0] for row in uploads]
+    deleted_orders = 0
+    deleted_uploads = 0
+    if upload_ids:
+        deleted_orders = (
+            db.query(OrderRow)
+            .filter(OrderRow.upload_id.in_(upload_ids))
+            .delete(synchronize_session=False)
+        )
+        deleted_uploads = (
+            db.query(SellerUpload)
+            .filter(SellerUpload.id.in_(upload_ids))
+            .delete(synchronize_session=False)
+        )
 
-    if uid_int is not None:
-        uploads = db.query(SellerUpload).filter(SellerUpload.user_id == uid_int).all()
-        upload_ids = [u.id for u in uploads]
-        uploads_deleted = len(upload_ids)
-        if upload_ids:
-            orders_deleted = int(
-                db.query(OrderRow).filter(OrderRow.upload_id.in_(upload_ids)).delete(
-                    synchronize_session=False
-                )
-            )
-            db.query(SellerUpload).filter(SellerUpload.id.in_(upload_ids)).delete(
-                synchronize_session=False
-            )
+    deleted_ads = (
+        db.query(AdCampaign)
+        .filter(AdCampaign.user_id == uid)
+        .delete(synchronize_session=False)
+    )
 
-    # Optional listing-file data
-    ensure_listing_table(db.get_bind())
-    listings_deleted = int(
+    deleted_listing = (
         db.query(ListingProduct)
         .filter(ListingProduct.user_id == user_id)
         .delete(synchronize_session=False)
     )
 
-    # Persisted chat sessions/history
-    ensure_chat_tables(engine)
-    chat_sessions = db.query(ChatSession).filter(ChatSession.user_id == user_id).all()
-    chats_deleted = len(chat_sessions)
-    for session in chat_sessions:
-        db.delete(session)
+    sessions = (
+        db.query(ChatSession.id)
+        .filter(ChatSession.user_id == user_id)
+        .all()
+    )
+    session_ids = [row[0] for row in sessions]
+    deleted_messages = 0
+    deleted_sessions = 0
+    if session_ids:
+        deleted_messages = (
+            db.query(ChatMessage)
+            .filter(ChatMessage.session_id.in_(session_ids))
+            .delete(synchronize_session=False)
+        )
+        deleted_sessions = (
+            db.query(ChatSession)
+            .filter(ChatSession.id.in_(session_ids))
+            .delete(synchronize_session=False)
+        )
 
     db.commit()
     return {
         "status": "ok",
-        "uploads_deleted": uploads_deleted,
-        "orders_deleted": orders_deleted,
-        "listings_deleted": listings_deleted,
-        "chat_sessions_deleted": chats_deleted,
+        "deleted": {
+            "uploads": deleted_uploads,
+            "orders": deleted_orders,
+            "ad_campaigns": deleted_ads,
+            "listing_products": deleted_listing,
+            "chat_sessions": deleted_sessions,
+            "chat_messages": deleted_messages,
+        },
     }

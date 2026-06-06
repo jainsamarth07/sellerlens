@@ -85,9 +85,7 @@ export default function Dashboard() {
   const returnRate = s.total_sale_orders
     ? (s.total_returns / s.total_sale_orders) * 100
     : 0;
-  const reclaimable =
-    (s.input_gst_tcs_credits || 0) +
-    (s.income_tax_credits || 0);
+  const reclaimable = (s.input_gst_tcs_credits || 0) + (s.income_tax_credits || 0);
   const netPctOfSales = s.gross_sales_amount
     ? (s.net_bank_settlement / s.gross_sales_amount) * 100
     : 0;

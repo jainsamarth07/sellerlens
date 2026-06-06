@@ -54,17 +54,17 @@ export default function ListingUploadButton() {
     setBusy(true);
     try {
       const res: ListingUploadResponse = await uploadListingFile(file);
-      try {
-        const products = await fetchListingProducts();
-        applyListingLookup(products);
-      } catch {
-        // Non-fatal: keep upload success even if enrichment fetch fails.
-      }
       setListing({
         hasListing: res.listing_count > 0,
         matched: res.listing_count,
         lastUploadedAt: new Date().toISOString(),
       });
+      try {
+        const products = await fetchListingProducts();
+        applyListingLookup(products);
+      } catch {
+        // Keep listing upload successful even if enrichment fetch fails.
+      }
       setToast({
         id: `t-${Date.now()}`,
         kind: "success",

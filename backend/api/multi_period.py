@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 
 from backend.processors.settlement_parser import parse_settlement
 from backend.services.auth_service import get_current_user
@@ -30,7 +31,7 @@ async def multi_period_analysis(
     parsed_files: list[dict] = []
     for f in files:
         contents = await f.read()
-        parsed = parse_settlement(contents, f.filename or "upload", None)
+        parsed = await run_in_threadpool(parse_settlement, contents, f.filename or "upload", None)
         parsed_files.append(parsed)
 
-    return analyze_multi_period(parsed_files)
+    return await run_in_threadpool(analyze_multi_period, parsed_files)

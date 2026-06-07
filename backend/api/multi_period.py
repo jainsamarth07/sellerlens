@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import gc
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
@@ -38,5 +40,6 @@ async def multi_period_analysis(
         parsed.pop("parsing_errors", None)
         parsed_files.append(parsed)
         del contents
+        gc.collect()
 
     return await run_in_threadpool(analyze_multi_period, parsed_files)

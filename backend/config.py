@@ -1,5 +1,7 @@
 """Centralised configuration loaded from environment variables."""
 
+from typing import Optional
+
 from pydantic_settings import BaseSettings
 
 
@@ -12,17 +14,17 @@ class Settings(BaseSettings):
     azure_openai_deployment_name: str = "gpt-4o"
     azure_openai_api_version: str = "2024-12-01-preview"
 
-    # Azure Document Intelligence
-    azure_document_intelligence_endpoint: str
-    azure_document_intelligence_key: str
+    # Azure Document Intelligence (future)
+    azure_document_intelligence_endpoint: Optional[str] = None
+    azure_document_intelligence_key: Optional[str] = None
 
-    # Azure Blob Storage
-    azure_storage_connection_string: str
+    # Azure Blob Storage (future)
+    azure_storage_connection_string: Optional[str] = None
     azure_storage_container_name: str = "seller-uploads"
 
-    # Azure AI Search
-    azure_ai_search_endpoint: str
-    azure_ai_search_key: str
+    # Azure AI Search (future)
+    azure_ai_search_endpoint: Optional[str] = None
+    azure_ai_search_key: Optional[str] = None
     azure_ai_search_index_name: str = "seller-data-index"
 
     # PostgreSQL

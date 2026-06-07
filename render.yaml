@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: sellerlens-backend
+    runtime: docker
+    dockerfilePath: Dockerfile.backend
+    dockerContext: .
+    dockerCommand: >-
+      sh -c "PYTHONPATH=/app alembic upgrade head &&
+      uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+    healthCheckPath: /health
+    envVars:
+      # --- Azure OpenAI (required) ---
+      - key: AZURE_OPENAI_ENDPOINT
+        sync: false
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+      - key: AZURE_OPENAI_DEPLOYMENT_NAME
+        value: gpt-4o
+      - key: AZURE_OPENAI_API_VERSION
+        value: 2024-12-01-preview
+
+      # --- PostgreSQL (Neon connection string) ---
+      - key: DATABASE_URL
+        sync: false
+
+      # --- CORS: set this after Vercel gives you the domain ---
+      - key: CORS_ORIGINS
+        sync: false
+
+      - key: APP_ENV
+        value: production

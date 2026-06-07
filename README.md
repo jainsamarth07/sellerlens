@@ -70,7 +70,30 @@ flowchart TD
               [Azure AI Search]
 ```
 
-## 5. Setup
+## 5. Try the Live Demo
+
+The app is deployed at **[https://jainsamarth07-sellerlens.vercel.app](https://jainsamarth07-sellerlens.vercel.app)**
+
+### Test credentials (pre-loaded with data)
+
+| Field | Value |
+| --- | --- |
+| **Email** | `sellerflipkart@sellerlens.com` |
+| **Password** | `sellerflipkart@1` |
+
+This account has a real Flipkart settlement report already uploaded — you can explore the dashboard, AI insights, ads analytics, and chat features immediately without uploading anything.
+
+### New sign-up
+
+Creating a new account via **Sign Up** will start an **interactive product tour** that walks you through every feature step by step.
+
+### Microsoft sign-in
+
+The **"Continue with Microsoft"** button is visible but **not yet functional** — Microsoft Entra ID integration is configured and the OAuth flow is implemented, but the app registration is pending approval. Use email/password sign-in for now.
+
+---
+
+## 6. Local Setup
 
 **Prerequisites:** Python 3.11+, Node 18+, an Azure subscription with OpenAI access.
 

@@ -32,6 +32,11 @@ async def multi_period_analysis(
     for f in files:
         contents = await f.read()
         parsed = await run_in_threadpool(parse_settlement, contents, f.filename or "upload", None)
+        # analyze_multi_period only uses summary/skus/ads_total_spend — drop orders
+        # immediately to avoid OOM on free-tier servers with 6 large files.
+        parsed.pop("orders", None)
+        parsed.pop("parsing_errors", None)
         parsed_files.append(parsed)
+        del contents
 
     return await run_in_threadpool(analyze_multi_period, parsed_files)

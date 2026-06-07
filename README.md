@@ -155,8 +155,8 @@ analytics/
 
 | Name | Role | Contact |
 | --- | --- | --- |
-| Samarth Jain | Full-stack & AI engineering | https://www.linkedin.com/in/samarthjain |
-| Cheshta Satija | Full-stack & AI engineering | https://www.linkedin.com/in/cheshta-satija-9b9759199/ |
+| Samarth Jain | Full-stack & AI engineering | https://www.linkedin.com/in/samarth-jain-5018621bb |
+| Cheshta Satija | Full-stack & AI engineering | https://www.linkedin.com/in/cheshta-satija-9b9759199 |
 
 ## 10. Theme
 

@@ -222,10 +222,8 @@ export async function postSuggestions(sellerData: any): Promise<string[]> {
   return res.data.questions;
 }
 
-export async function uploadMultiPeriod(files: File[]): Promise<MultiPeriodResult> {
-  const form = new FormData();
-  files.forEach((f) => form.append("files", f));
-  const res = await api.post<MultiPeriodResult>("/analytics/multi-period", form);
+export async function runMultiPeriod(uploadIds: number[]): Promise<MultiPeriodResult> {
+  const res = await api.post<MultiPeriodResult>("/analytics/multi-period", { upload_ids: uploadIds });
   return res.data;
 }
 

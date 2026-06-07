@@ -28,6 +28,9 @@ class SellerUpload(Base):
     blob_url = Column(Text, nullable=False)
     row_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    summary_json = Column(Text, nullable=True)
+    skus_json = Column(Text, nullable=True)
+    ads_total_spend = Column(Float, nullable=True, default=0.0)
 
     orders = relationship("OrderRow", back_populates="upload", cascade="all, delete-orphan")
 

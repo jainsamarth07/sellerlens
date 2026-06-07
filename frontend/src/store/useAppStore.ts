@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { api } from "../lib/api";
 import type { ListingProductInfo, UploadResponse } from "../lib/api";
 
 export interface PeriodEntry {
@@ -23,6 +24,7 @@ interface AppState {
   setActivePeriod: (id: number) => void;
   setListing: (next: Partial<ListingState>) => void;
   applyListingLookup: (products: Record<string, ListingProductInfo>) => void;
+  restoreFromServer: () => Promise<void>;
   clearAll: () => void;
 }
 
@@ -80,6 +82,36 @@ export const useAppStore = create<AppState>()(
             },
           })),
         })),
+
+      restoreFromServer: async () => {
+        try {
+          const res = await api.get<any[]>("/upload/history");
+          if (!res.data.length) return;
+          const incoming: PeriodEntry[] = res.data.map((u) => ({
+            upload: {
+              upload_id: u.upload_id,
+              filename: u.filename,
+              platform: u.platform,
+              rows_parsed: u.rows_parsed,
+              summary: u.summary,
+              ads_total_spend: u.ads_total_spend,
+              skus: u.skus,
+              parsing_errors: u.parsing_errors,
+              blob_url: u.blob_url,
+            } as UploadResponse,
+            uploadedAt: u.uploaded_at ?? new Date().toISOString(),
+          }));
+          set((state) => {
+            if (state.periods.length > 0) return state;
+            return {
+              periods: incoming,
+              activePeriodId: incoming[0]?.upload.upload_id ?? null,
+            };
+          });
+        } catch {
+          /* silently ignore — user just won't see restored data */
+        }
+      },
 
       clearAll: () =>
         set({

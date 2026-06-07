@@ -12,6 +12,7 @@ Two modes are supported:
 
 from __future__ import annotations
 
+import json
 import threading
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
@@ -106,6 +107,9 @@ async def upload_file(
         platform=parsed.get("platform", platform),
         blob_url=blob_url,
         row_count=len(parsed.get("orders", [])),
+        summary_json=json.dumps(parsed.get("summary")),
+        skus_json=json.dumps(parsed.get("skus", [])),
+        ads_total_spend=parsed.get("ads_total_spend", 0.0),
     )
     db.add(upload_record)
     db.commit()
@@ -161,6 +165,9 @@ def _run_pipeline(
             platform=parsed.get("platform", platform),
             blob_url=blob_url,
             row_count=rows,
+            summary_json=json.dumps(parsed.get("summary")),
+            skus_json=json.dumps(parsed.get("skus", [])),
+            ads_total_spend=parsed.get("ads_total_spend", 0.0),
         )
         db.add(upload_record)
         db.commit()
@@ -201,6 +208,44 @@ async def get_status(job_id: str, _user=Depends(get_current_user)):
     if not job:
         raise HTTPException(status_code=404, detail="Unknown job_id")
     return upload_jobs.serialize(job)
+
+
+# ---------------------------------------------------------------------------
+# Upload history — restore parsed data across browsers/devices
+# ---------------------------------------------------------------------------
+
+
+@router.get("/history")
+async def get_upload_history(
+    db: Session = Depends(get_db),
+    user_id: str = Depends(current_user_id),
+):
+    """Return the user's last 10 uploads with full parsed data for client-side restore."""
+    uploads = (
+        db.query(SellerUpload)
+        .filter(SellerUpload.user_id == int(user_id), SellerUpload.summary_json.isnot(None))
+        .order_by(SellerUpload.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    result = []
+    for u in uploads:
+        try:
+            result.append({
+                "upload_id": u.id,
+                "filename": u.filename,
+                "platform": u.platform,
+                "rows_parsed": u.row_count or 0,
+                "summary": json.loads(u.summary_json),
+                "skus": json.loads(u.skus_json or "[]")[:50],
+                "ads_total_spend": u.ads_total_spend or 0.0,
+                "blob_url": u.blob_url or "",
+                "parsing_errors": [],
+                "uploaded_at": u.created_at.isoformat() if u.created_at else None,
+            })
+        except Exception:  # noqa: BLE001
+            continue
+    return result
 
 
 # ---------------------------------------------------------------------------

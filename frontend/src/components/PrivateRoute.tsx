@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../store/useAuth";
+import { useAppStore } from "../store/useAppStore";
 
 /**
  * Wraps protected routes. Redirects to /login when no valid token exists.
@@ -11,6 +12,7 @@ export default function PrivateRoute({ children }: { children: React.ReactNode }
   const initialized = useAuthStore((s) => s.initialized);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+  const restoreFromServer = useAppStore((s) => s.restoreFromServer);
   const location = useLocation();
 
   useEffect(() => {
@@ -18,6 +20,12 @@ export default function PrivateRoute({ children }: { children: React.ReactNode }
       initialize().catch(() => undefined);
     }
   }, [initialized, initialize]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      restoreFromServer();
+    }
+  }, [isAuthenticated, restoreFromServer]);
 
   if (!initialized || isLoading) {
     return (

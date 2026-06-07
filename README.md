@@ -8,16 +8,17 @@
 
 ## 1. Problem Statement
 
-Indian Amazon and Flipkart sellers receive **multi-sheet settlement workbooks with 50+ columns** every payout cycle. Returns, marketplace fees, GST, TCS/TDS, reverse-shipping charges, and ad spend are spread across separate tabs. There is no way to see **true profit per SKU** without hours of manual Excel work, and most sellers simply trust the platform's "net settlement" line — leaving reclaimable GST credits, fee anomalies, and loss-making SKUs invisible. **SellerLens turns those reports into instant, AI-driven decisions.**
+Indian Flipkart sellers receive **multi-sheet settlement workbooks with 50+ columns** every payout cycle. Returns, marketplace fees, GST, TCS/TDS, reverse-shipping charges, and ad spend are spread across separate tabs. There is no way to see **true profit per SKU** without hours of manual Excel work, and most sellers simply trust the platform's "net settlement" line — leaving reclaimable GST credits, ad-spend waste, fee anomalies, and loss-making SKUs invisible. **SellerLens turns those reports into instant, AI-driven decisions.**
 
 ## 2. Solution Overview
 
-1. **Upload** a Flipkart `.xlsx` or Amazon `.csv` settlement report (drag-drop, up to 50 MB).
+1. **Upload** a Flipkart `.xlsx` settlement report (drag-drop, up to 50 MB).
 2. **Auto-parse** structure with Azure Document Intelligence + a tolerant pandas pipeline that handles column-name drift across statement versions.
 3. **Profit engine** computes per-SKU net settlement, return rate, and margin after every fee, tax, and reverse-shipping deduction.
-4. **AI insights** — Azure OpenAI (GPT-4o) generates 5 ranked, actionable findings (e.g. *"Reclaim ₹28,967 in GST input credits before the 20-Jun deadline"*) with rupee impact and a 0–100 health score.
-5. **Chat with your data** — natural-language Q&A grounded in the seller's own numbers, with follow-up suggestions and source-data citations.
-6. **Multi-period trends** — drop in 2–6 months of reports for period-over-period analysis, SKU-level decline detection, and an AI trend narrative.
+4. **Ads Analytics** — per-SKU ad spend is reconciled against settlement revenue to surface loss-making promoted products, top ROAS performers, and reclaimable GST input credits on ad costs. A dedicated AI summary flags the worst ad-spend bleeds (e.g. *"Laptop Stand losing ₹6,539/month on ads — pause or reprice"*) and the highest-profit ad winners.
+5. **AI insights** — Azure OpenAI (GPT-4o) generates 5 ranked, actionable findings (e.g. *"Reclaim ₹28,967 in GST input credits before the 20-Jun deadline"*) with rupee impact and a 0–100 health score.
+6. **Chat with your data** — natural-language Q&A grounded in the seller's own numbers, with follow-up suggestions and source-data citations.
+7. **Multi-period trends** — drop in 2–6 months of reports for period-over-period analysis, SKU-level decline detection, and an AI trend narrative.
 
 ## 3. Azure AI Stack
 
@@ -94,7 +95,7 @@ npm install
 npm run dev                             # http://localhost:3000
 
 # 5. Try it
-# Visit http://localhost:3000 → /upload → drop a Flipkart .xlsx
+# Visit http://localhost:3000 → /upload → drop a Flipkart .xlsx settlement report
 # (Don't have one? Click "Download sample Flipkart template" on the upload page.)
 ```
 
@@ -121,6 +122,7 @@ Stop with `docker compose down`; add `-v` to also wipe the database volume.
 
 - **4-step upload flow** with animated pipeline progress (`upload → read → parse → profit → insights`) and confetti success state
 - **Dashboard** — 4 KPI cards, revenue/settlement bar chart, donut showing where every rupee went, full settlement waterfall, sortable SKU table
+- **Ads Analytics** — dedicated tab showing per-SKU ad spend vs. profit, loss-making promoted products highlighted in red, top ROAS winners, and reclaimable GST input credits on ad costs; AI summary card with rupee-impact findings
 - **AI Insights panel** — 5 ranked cards (warning / opportunity / info), each with rupee impact and a recommended action
 - **Chat** — message bubbles, `data_used` chips, follow-up suggestion buttons, sticky session, "Powered by Azure OpenAI" attribution
 - **Compare Months** — 2–6 file upload, line-chart trends, side-by-side metric table, AI trend narrative
@@ -139,13 +141,13 @@ Stop with `docker compose down`; add `-v` to also wipe the database volume.
 ```
 analytics/
 ├── backend/
-│   ├── api/            # FastAPI routers: upload, analytics, chat, multi_period, health
-│   ├── services/       # azure_openai_service, chat_service, multi_period_analyzer, storage, sample_data, upload_jobs
-│   ├── processors/     # flipkart_parser, amazon_parser, settlement_parser, profit_calculator
+│   ├── api/            # FastAPI routers: upload, analytics, ads_analytics, chat, multi_period, health
+│   ├── services/       # azure_openai_service, chat_service, multi_period_analyzer, ads_analyzer, storage, sample_data, upload_jobs
+│   ├── processors/     # flipkart_parser, settlement_parser, profit_calculator, ads_reconciler
 │   └── models/         # SQLAlchemy ORM
 ├── frontend/
 │   └── src/            # pages/ + components/ + lib/ + store/  (React 18 + Vite + Tailwind)
-├── tests/              # 69 pytest tests (parsers, AI engine, chat, multi-period, upload pipeline)
+├── tests/              # 69 pytest tests (parsers, AI engine, chat, ads analytics, multi-period, upload pipeline)
 └── README.md
 ```
 
@@ -154,6 +156,7 @@ analytics/
 | Name | Role | Contact |
 | --- | --- | --- |
 | Samarth Jain | Full-stack & AI engineering | https://www.linkedin.com/in/samarthjain |
+| Cheshta Satija | Full-stack & AI engineering | https://www.linkedin.com/in/cheshta-satija-9b9759199/ |
 
 ## 10. Theme
 

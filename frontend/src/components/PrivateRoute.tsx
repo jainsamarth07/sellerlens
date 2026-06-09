@@ -3,16 +3,14 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../store/useAuth";
 import { useAppStore } from "../store/useAppStore";
 
-/**
- * Wraps protected routes. Redirects to /login when no valid token exists.
- * Shows a tiny loader on first load while ``/auth/me`` is being checked.
- */
 export default function PrivateRoute({ children }: { children: React.ReactNode }) {
   const initialize = useAuthStore((s) => s.initialize);
   const initialized = useAuthStore((s) => s.initialized);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+  const user = useAuthStore((s) => s.user);
   const restoreFromServer = useAppStore((s) => s.restoreFromServer);
+  const serverRestored = useAppStore((s) => s.serverRestored);
   const location = useLocation();
 
   useEffect(() => {
@@ -22,10 +20,18 @@ export default function PrivateRoute({ children }: { children: React.ReactNode }
   }, [initialized, initialize]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !serverRestored) {
       restoreFromServer();
     }
-  }, [isAuthenticated, restoreFromServer]);
+  }, [isAuthenticated, serverRestored, restoreFromServer]);
+
+  // Optimistic render: if we have a persisted token + user from a previous
+  // session, show content immediately while /auth/me verifies in background.
+  // On 401 the axios interceptor already redirects to /login.
+  const hasPersistedAuth = isAuthenticated && user !== null;
+  if (!initialized && hasPersistedAuth) {
+    return <>{children}</>;
+  }
 
   if (!initialized || isLoading) {
     return (

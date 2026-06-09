@@ -19,6 +19,7 @@ interface AppState {
   activePeriodId: number | null;
   sessionId: string;
   listing: ListingState;
+  serverRestored: boolean;
 
   addPeriod: (upload: UploadResponse) => void;
   setActivePeriod: (id: number) => void;
@@ -44,6 +45,7 @@ export const useAppStore = create<AppState>()(
       activePeriodId: null,
       sessionId: newSessionId(),
       listing: emptyListing,
+      serverRestored: false,
 
       addPeriod: (upload) =>
         set((state) => ({
@@ -84,6 +86,11 @@ export const useAppStore = create<AppState>()(
         })),
 
       restoreFromServer: async () => {
+        // Already restored this session — skip to avoid redundant API calls on
+        // every route navigation (PrivateRoute mounts fresh for each route).
+        const alreadyRestored = useAppStore.getState().serverRestored;
+        if (alreadyRestored) return;
+        set({ serverRestored: true });
         try {
           const res = await api.get<any[]>("/upload/history");
           if (!res.data.length) return;
@@ -119,6 +126,7 @@ export const useAppStore = create<AppState>()(
           activePeriodId: null,
           sessionId: newSessionId(),
           listing: emptyListing,
+          serverRestored: false,
         }),
     }),
     { name: "sellerlens-store" },

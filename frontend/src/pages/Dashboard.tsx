@@ -50,8 +50,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     setInsights(null);
-    if (active) loadInsights();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active?.upload.upload_id]);
 
   if (!active) {
@@ -219,7 +217,9 @@ export default function Dashboard() {
           )}
 
           {!insightsLoading && !insights && (
-            <p className="text-sm text-slate-500">No insights yet.</p>
+            <p className="text-sm text-slate-500">
+              Click <strong>Refresh</strong> to generate AI insights for this period.
+            </p>
           )}
         </div>
       </div>
